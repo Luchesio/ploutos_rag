@@ -1,0 +1,28 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+pydantic[email]
+
+# .env loading
+python-dotenv
+
+# Gemini
+google-genai
+
+# Vector store
+chromadb
+
+# Data processing
+pandas
+openpyxl
+
+# Retry logic
+tenacity
+
+# MongoDB async driver
+motor
+
+# Authentication
+bcrypt
+python-jose[cryptography]
