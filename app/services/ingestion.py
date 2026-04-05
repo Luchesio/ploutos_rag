@@ -32,7 +32,11 @@ class IngestionService:
         if not force and not self.vector_store.is_empty():
             count = self.vector_store.count()
             logger.info(f"Vector store already has {count} chunks — skipping ingestion")
-            return {"message": "Already ingested", "total_chunks": count, "collection": settings.COLLECTION_NAME}
+            return {
+                "message": "Already ingested",
+                "total_chunks": count,
+                "collection": settings.COLLECTION_NAME,
+            }
 
         if force:
             logger.info("Force re-ingestion — clearing existing collection")
@@ -43,17 +47,19 @@ class IngestionService:
         chunks = self.splitter.load_and_split()
         logger.info(f"Produced {len(chunks)} policy chunks")
 
-        # Step 2: Embed all chunks
+        # Step 2: Embed all chunks (await — embed_documents_batch is now async)
         logger.info("Step 2/3 — Embedding chunks with gemini-embedding-001...")
         texts = [chunk.text for chunk in chunks]
-        embeddings = self.embedder.embed_documents_batch(texts)
+        embeddings = await self.embedder.embed_documents_batch(texts)
 
         # Step 3: Store in vector store
         logger.info("Step 3/3 — Storing in ChromaDB...")
         self.vector_store.add_chunks(chunks, embeddings)
 
         total = self.vector_store.count()
-        logger.info(f"Ingestion complete — {total} chunks stored in '{settings.COLLECTION_NAME}'")
+        logger.info(
+            f"Ingestion complete — {total} chunks stored in '{settings.COLLECTION_NAME}'"
+        )
         return {
             "message": "Ingestion successful",
             "total_chunks": total,
