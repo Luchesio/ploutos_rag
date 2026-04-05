@@ -29,7 +29,12 @@ class Settings(BaseSettings):
     # Data & persistence — hardcoded
     # ------------------------------------------------------------------ #
     DATA_PATH:          Path = Path("data/sample_data.xlsx")
-    CHROMA_PERSIST_DIR: str  = "./chroma_db"
+
+    # /tmp/chroma_db  — works on both Vercel (read-only fs, /tmp is writable)
+    #                   and Docker (ephemeral within the container).
+    # Override via CHROMA_PERSIST_DIR env var if you need a mounted volume
+    # in Docker (e.g. CHROMA_PERSIST_DIR=./chroma_db in docker-compose).
+    CHROMA_PERSIST_DIR: str  = "/tmp/chroma_db"
     COLLECTION_NAME:    str  = "insurance_policies"
 
     # ------------------------------------------------------------------ #

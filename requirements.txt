@@ -14,7 +14,10 @@ python-dotenv
 google-genai
 
 # ── Vector store ──────────────────────────────────────────────────────────
-chromadb
+# Pinned to 0.4.24 — last pure-Python release before Rust bindings were
+# introduced in 0.5.0. Newer versions crash on serverless (Vercel/Lambda)
+# with: AttributeError: 'RustBindingsAPI' object has no attribute 'bindings'
+chromadb==0.4.24
 
 # ── Data processing ───────────────────────────────────────────────────────
 pandas
