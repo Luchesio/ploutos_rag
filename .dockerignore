@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local secrets — never bake into image
+.env
+.env.*
+!.env.example
+
+# Chroma & data — mounted as volumes at runtime
+chroma_db/
+
+# Git
+.git/
+.gitignore
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Docker files themselves (no need to copy into image)
+Dockerfile*
+docker-compose*.yml
+
+# Test / CI
+.pytest_cache/
+htmlcov/
+.coverage

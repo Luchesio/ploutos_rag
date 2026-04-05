@@ -1,28 +1,31 @@
+# ── Web framework ─────────────────────────────────────────────────────────
 fastapi
 uvicorn[standard]
+
+# ── Pydantic / settings ───────────────────────────────────────────────────
 pydantic
 pydantic-settings
 pydantic[email]
 
-# .env loading
+# ── .env loading ──────────────────────────────────────────────────────────
 python-dotenv
 
-# Gemini
+# ── Gemini ────────────────────────────────────────────────────────────────
 google-genai
 
-# Vector store
+# ── Vector store ──────────────────────────────────────────────────────────
 chromadb
 
-# Data processing
+# ── Data processing ───────────────────────────────────────────────────────
 pandas
 openpyxl
 
-# Retry logic
+# ── Retry logic ───────────────────────────────────────────────────────────
 tenacity
 
-# MongoDB async driver
+# ── MongoDB async driver ──────────────────────────────────────────────────
 motor
 
-# Authentication
+# ── Authentication ────────────────────────────────────────────────────────
 bcrypt
 python-jose[cryptography]

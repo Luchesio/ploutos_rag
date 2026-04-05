@@ -1,0 +1,18 @@
+# Development override — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Adds hot-reload and mounts source code live into the container.
+
+services:
+  app:
+    volumes:
+      - .:/app                    # live code mount for hot-reload
+      - /app/chroma_db            # anonymous volume so host chroma_db doesn't override the named one
+    command: >
+      uvicorn main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+    environment:
+      LOG_FORMAT: human
+      LOG_LEVEL: DEBUG
