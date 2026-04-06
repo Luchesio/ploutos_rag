@@ -159,7 +159,7 @@ class VectorStoreService:
             documents.append(payload.get("_document", ""))
             meta = {k: v for k, v in payload.items() if not k.startswith("_")}
             metadatas.append(meta)
-            distances.append(hit.score)
+            distances.append(1.0 - hit.score)
 
         # Wrap in outer lists to match ChromaDB's nested-list response shape
         return {
