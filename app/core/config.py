@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # Qdrant score_threshold = 1 - SIMILARITY_THRESHOLD.
     # 0.5 → accepts any chunk where Qdrant scores above 0.5.
     # Lower to be more strict; raise to be more permissive.
-    SIMILARITY_THRESHOLD: float = 0.5
+    SIMILARITY_THRESHOLD: float = 0.67
 
     # ------------------------------------------------------------------ #
     # MongoDB — must be in .env / Vercel env vars
