@@ -18,6 +18,7 @@ google-genai
 # introduced in 0.5.0. Newer versions crash on serverless (Vercel/Lambda)
 # with: AttributeError: 'RustBindingsAPI' object has no attribute 'bindings'
 chromadb==0.4.24
+numpy<2.0
 
 # ── Data processing ───────────────────────────────────────────────────────
 pandas
