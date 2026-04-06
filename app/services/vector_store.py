@@ -1,5 +1,4 @@
 import chromadb
-from chromadb.config import Settings as ChromaSettings
 import logging
 from typing import Optional
 
@@ -8,21 +7,48 @@ from app.services.chunker import PolicyChunk
 
 logger = logging.getLogger(__name__)
 
+# Module-level singleton — shared across all VectorStoreService instances
+# within the same process/Lambda invocation. EphemeralClient is pure Python
+# (no Rust bindings) and works correctly on Vercel and other serverless runtimes.
+_chroma_client: Optional[chromadb.EphemeralClient] = None
+
+
+def _get_chroma_client() -> chromadb.EphemeralClient:
+    """
+    Return a module-level singleton EphemeralClient.
+
+    Singleton is important on Vercel: each Lambda invocation may be reused
+    (warm start), so we avoid re-creating the in-memory client — and the
+    collection — on every request. Without this, every request would see an
+    empty collection because a brand-new EphemeralClient starts blank.
+    """
+    global _chroma_client
+    if _chroma_client is None:
+        _chroma_client = chromadb.EphemeralClient()
+        logger.info("ChromaDB EphemeralClient created (pure-Python, serverless-safe)")
+    return _chroma_client
+
 
 class VectorStoreService:
     """
     Manages the ChromaDB vector store for storing and retrieving
     embedded policy chunks.
 
-    Uses persistent storage so the vector store survives restarts
-    and doesn't require re-ingestion every time.
+    Uses EphemeralClient (in-memory, pure Python) instead of PersistentClient
+    so the service works on serverless runtimes (Vercel/Lambda) where:
+      • The Rust-based persistent backend is unavailable
+      • The filesystem is read-only outside /tmp anyway
+
+    A module-level singleton client ensures the collection survives across
+    warm invocations within the same Lambda container.
+
+    For Docker / long-running deployments persistence is handled by the
+    ingestion skip-check at startup (data is re-embedded only once per
+    container lifetime on cold start, then reused for all warm requests).
     """
 
     def __init__(self):
-        self.client = chromadb.PersistentClient(
-            path=settings.CHROMA_PERSIST_DIR,
-            settings=ChromaSettings(anonymized_telemetry=False),
-        )
+        self.client = _get_chroma_client()
         self.collection = self.client.get_or_create_collection(
             name=settings.COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},  # cosine similarity for Gemini embeddings
@@ -38,7 +64,9 @@ class VectorStoreService:
     def add_chunks(self, chunks: list[PolicyChunk], embeddings: list[list[float]]) -> None:
         """Upsert policy chunks with their embeddings into ChromaDB."""
         if len(chunks) != len(embeddings):
-            raise ValueError(f"Chunks ({len(chunks)}) and embeddings ({len(embeddings)}) count mismatch")
+            raise ValueError(
+                f"Chunks ({len(chunks)}) and embeddings ({len(embeddings)}) count mismatch"
+            )
 
         ids = [chunk.chunk_id for chunk in chunks]
         documents = [chunk.text for chunk in chunks]
