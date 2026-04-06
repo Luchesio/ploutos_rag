@@ -32,17 +32,24 @@ class Settings(BaseSettings):
 
     # ------------------------------------------------------------------ #
     # Qdrant Cloud — must be in .env / Vercel env vars
-    # Get these from https://cloud.qdrant.io after creating a free cluster
     # ------------------------------------------------------------------ #
-    QDRANT_URL:     str          # e.g. https://xxxx.us-east4-0.gcp.cloud.qdrant.io:6333
-    QDRANT_API_KEY: str          # Qdrant cluster API key
+    QDRANT_URL:      str
+    QDRANT_API_KEY:  str
     COLLECTION_NAME: str = "insurance_policies"
 
     # ------------------------------------------------------------------ #
-    # Retrieval — hardcoded
+    # Retrieval
     # ------------------------------------------------------------------ #
-    TOP_K:                int   = 5
-    SIMILARITY_THRESHOLD: float = 0.3
+    # No TOP_K — retrieval is threshold-based. Qdrant returns every chunk
+    # whose cosine similarity score meets or exceeds (1 - SIMILARITY_THRESHOLD),
+    # up to the full collection size. This ensures Femi sees all genuinely
+    # relevant records rather than an arbitrary fixed number.
+    #
+    # SIMILARITY_THRESHOLD is a ChromaDB-style distance (lower = more similar).
+    # Qdrant score_threshold = 1 - SIMILARITY_THRESHOLD.
+    # 0.5 → accepts chunks where Qdrant scores above 0.5 (moderately similar).
+    # Lower this value to be more strict; raise it to be more permissive.
+    SIMILARITY_THRESHOLD: float = 0.5
 
     # ------------------------------------------------------------------ #
     # MongoDB — must be in .env / Vercel env vars

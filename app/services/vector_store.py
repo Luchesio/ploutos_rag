@@ -1,7 +1,21 @@
 """
 vector_store.py — Qdrant Cloud vector store for Femi RAG Service.
 
-Uses qdrant-client >= 1.8 API (query_points replaces the deprecated search).
+Retrieval strategy: score_threshold instead of TOP_K
+─────────────────────────────────────────────────────
+Rather than returning an arbitrary fixed number of chunks (TOP_K), we ask
+Qdrant to return EVERY chunk whose cosine similarity score meets or exceeds
+SIMILARITY_THRESHOLD. This means Femi sees all genuinely relevant policy
+records for a query — not just the top 5 or top 20.
+
+  score_threshold = 1 - SIMILARITY_THRESHOLD
+  (because Qdrant score is the inverse of ChromaDB-style distance)
+
+limit is set to self.count() (the full collection size) so no relevant
+result is ever capped out.
+
+The response shape returned is still ChromaDB-compatible (distances are
+returned as 1 - score) so rag.py requires no changes.
 """
 
 import logging
@@ -25,18 +39,11 @@ logger = logging.getLogger(__name__)
 
 
 def _chunk_id_to_int(chunk_id: str) -> int:
-    """
-    Convert a string chunk_id (e.g. 'chunk_0_POL001') to a stable
-    unsigned 64-bit integer for Qdrant point IDs.
-    """
+    """Convert a string chunk_id to a stable unsigned 64-bit integer."""
     return int(hashlib.md5(chunk_id.encode()).hexdigest()[:16], 16) % (2**63)
 
 
 class VectorStoreService:
-    """
-    Qdrant Cloud-backed vector store.
-    Maintains the same public interface as the original ChromaDB implementation.
-    """
 
     def __init__(self):
         self.client = QdrantClient(
@@ -56,7 +63,6 @@ class VectorStoreService:
     # ------------------------------------------------------------------ #
 
     def _ensure_collection(self) -> None:
-        """Create the Qdrant collection if it doesn't already exist."""
         existing = {c.name for c in self.client.get_collections().collections}
         if self.collection_name not in existing:
             self.client.create_collection(
@@ -69,7 +75,7 @@ class VectorStoreService:
             logger.info(f"Created Qdrant collection '{self.collection_name}'")
 
     # ------------------------------------------------------------------ #
-    # Public interface (mirrors original ChromaDB implementation)
+    # Public interface
     # ------------------------------------------------------------------ #
 
     def is_empty(self) -> bool:
@@ -84,7 +90,6 @@ class VectorStoreService:
         chunks: list[PolicyChunk],
         embeddings: list[list[float]],
     ) -> None:
-        """Upsert policy chunks and their embeddings into Qdrant."""
         if len(chunks) != len(embeddings):
             raise ValueError(
                 f"Chunks ({len(chunks)}) and embeddings ({len(embeddings)}) count mismatch"
@@ -111,26 +116,30 @@ class VectorStoreService:
             )
 
         logger.info(
-            f"Upserted {len(chunks)} chunks into Qdrant collection '{self.collection_name}'"
+            f"Upserted {len(chunks)} chunks into Qdrant '{self.collection_name}'"
         )
 
     def query(
         self,
         query_embedding: list[float],
-        top_k: int,
+        top_k: int,           # kept for interface compatibility — not used as a hard cap
         where: Optional[dict] = None,
     ) -> dict:
         """
-        Retrieve the top-k most similar chunks for a query embedding.
+        Return ALL chunks that score above SIMILARITY_THRESHOLD.
 
-        Returns a dict mirroring ChromaDB's response shape so rag.py's
-        _parse_results() works without any changes:
-          {
-            "documents": [[doc_text, ...]],
-            "metadatas": [[metadata_dict, ...]],
-            "distances": [[score, ...]],
-          }
+        score_threshold = 1 - SIMILARITY_THRESHOLD converts the ChromaDB-style
+        distance threshold into a Qdrant score threshold.
+
+        limit is set to the full collection size so no valid result is capped.
+        Returned distances are (1 - score) to stay ChromaDB-compatible.
         """
+        total = max(self.count(), 1)
+
+        # Qdrant score is the inverse of ChromaDB distance:
+        #   distance = 1 - score  →  score_threshold = 1 - SIMILARITY_THRESHOLD
+        score_threshold = 1.0 - settings.SIMILARITY_THRESHOLD
+
         qdrant_filter = None
         if where:
             qdrant_filter = Filter(
@@ -140,12 +149,11 @@ class VectorStoreService:
                 ]
             )
 
-        # query_points is the current API in qdrant-client >= 1.8
-        # (replaces the deprecated .search() method)
         response = self.client.query_points(
             collection_name=self.collection_name,
             query=query_embedding,
-            limit=min(top_k, max(self.count(), 1)),
+            limit=total,                    # never cap — return all above threshold
+            score_threshold=score_threshold,
             query_filter=qdrant_filter,
             with_payload=True,
         )
@@ -159,9 +167,14 @@ class VectorStoreService:
             documents.append(payload.get("_document", ""))
             meta = {k: v for k, v in payload.items() if not k.startswith("_")}
             metadatas.append(meta)
-            distances.append(1.0 - hit.score)
+            distances.append(1.0 - hit.score)   # convert back to distance for rag.py
 
-        # Wrap in outer lists to match ChromaDB's nested-list response shape
+        logger.info(
+            f"Query returned {len(documents)} chunks above "
+            f"score_threshold={score_threshold:.2f} "
+            f"(SIMILARITY_THRESHOLD={settings.SIMILARITY_THRESHOLD})"
+        )
+
         return {
             "documents": [documents],
             "metadatas": [metadatas],
@@ -169,7 +182,6 @@ class VectorStoreService:
         }
 
     def delete_collection(self) -> None:
-        """Wipe and recreate the collection (used by force re-ingestion)."""
         self.client.delete_collection(self.collection_name)
         self._ensure_collection()
         logger.warning(f"Collection '{self.collection_name}' deleted and recreated.")
