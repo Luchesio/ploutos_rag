@@ -14,11 +14,10 @@ python-dotenv
 google-genai
 
 # ── Vector store ──────────────────────────────────────────────────────────
-# Pinned to 0.4.24 — last pure-Python release before Rust bindings were
-# introduced in 0.5.0. Newer versions crash on serverless (Vercel/Lambda)
-# with: AttributeError: 'RustBindingsAPI' object has no attribute 'bindings'
-chromadb==0.4.24
-numpy<2.0
+# Qdrant Cloud replaces ChromaDB. ChromaDB requires hnswlib which needs
+# libgomp.so.1 (OpenMP) — a native system library absent from Vercel/Lambda.
+# Qdrant is fully hosted so there are no native dependencies.
+qdrant-client
 
 # ── Data processing ───────────────────────────────────────────────────────
 pandas

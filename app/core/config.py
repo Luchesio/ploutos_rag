@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     BOT_OWNER: str       = "Ploutos Page Limited"
 
     # ------------------------------------------------------------------ #
-    # Gemini — must be in .env
+    # Gemini — must be in .env / Vercel env vars
     # ------------------------------------------------------------------ #
     GEMINI_API_KEY: str
     LLM_MODEL: str       = "gemini-2.5-flash"
@@ -26,16 +26,17 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = 3072
 
     # ------------------------------------------------------------------ #
-    # Data & persistence — hardcoded
+    # Data
     # ------------------------------------------------------------------ #
-    DATA_PATH:          Path = Path("data/sample_data.xlsx")
+    DATA_PATH: Path = Path("data/sample_data.xlsx")
 
-    # /tmp/chroma_db  — works on both Vercel (read-only fs, /tmp is writable)
-    #                   and Docker (ephemeral within the container).
-    # Override via CHROMA_PERSIST_DIR env var if you need a mounted volume
-    # in Docker (e.g. CHROMA_PERSIST_DIR=./chroma_db in docker-compose).
-    CHROMA_PERSIST_DIR: str  = "/tmp/chroma_db"
-    COLLECTION_NAME:    str  = "insurance_policies"
+    # ------------------------------------------------------------------ #
+    # Qdrant Cloud — must be in .env / Vercel env vars
+    # Get these from https://cloud.qdrant.io after creating a free cluster
+    # ------------------------------------------------------------------ #
+    QDRANT_URL:     str          # e.g. https://xxxx.us-east4-0.gcp.cloud.qdrant.io:6333
+    QDRANT_API_KEY: str          # Qdrant cluster API key
+    COLLECTION_NAME: str = "insurance_policies"
 
     # ------------------------------------------------------------------ #
     # Retrieval — hardcoded
@@ -44,7 +45,7 @@ class Settings(BaseSettings):
     SIMILARITY_THRESHOLD: float = 0.3
 
     # ------------------------------------------------------------------ #
-    # MongoDB — must be in .env
+    # MongoDB — must be in .env / Vercel env vars
     # ------------------------------------------------------------------ #
     MONGODB_URI:        str
     MONGODB_DB_NAME:    str = "femi_rag"
@@ -58,9 +59,9 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # JWT — secret must be in .env, algorithm and expiry are hardcoded
     # ------------------------------------------------------------------ #
-    JWT_SECRET_KEY:            str = ""          # required — must be set in .env
-    JWT_ALGORITHM:             str = "HS256"     # hardcoded
-    ACCESS_TOKEN_EXPIRE_HOURS: int = 24          # hardcoded
+    JWT_SECRET_KEY:            str = ""
+    JWT_ALGORITHM:             str = "HS256"
+    ACCESS_TOKEN_EXPIRE_HOURS: int = 24
 
     # ------------------------------------------------------------------ #
     # Conversation history — hardcoded
@@ -68,9 +69,8 @@ class Settings(BaseSettings):
     CONVERSATION_HISTORY_TURNS: int = 5
 
     # ------------------------------------------------------------------ #
-    # Security — API_KEY must be set in .env for production
+    # Security
     # ------------------------------------------------------------------ #
-    # Leave API_KEY empty / unset to disable authentication (dev only).
     API_KEY:                str | None = None
     RATE_LIMIT_PER_MINUTE:  int        = 60
     MAX_QUESTION_LENGTH:    int        = 2000
@@ -78,13 +78,13 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Performance
     # ------------------------------------------------------------------ #
-    EMBEDDING_CACHE_SIZE: int = 512   # LRU slots for query embeddings
+    EMBEDDING_CACHE_SIZE: int = 512
 
     # ------------------------------------------------------------------ #
     # Observability
     # ------------------------------------------------------------------ #
-    LOG_LEVEL:  str = "INFO"   # DEBUG | INFO | WARNING | ERROR
-    LOG_FORMAT: str = "human"  # "human" for dev, "json" for prod
+    LOG_LEVEL:  str = "INFO"
+    LOG_FORMAT: str = "human"
 
     class Config:
         env_file = ".env"
