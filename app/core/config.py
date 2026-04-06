@@ -40,15 +40,15 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Retrieval
     # ------------------------------------------------------------------ #
-    # No TOP_K — retrieval is threshold-based. Qdrant returns every chunk
-    # whose cosine similarity score meets or exceeds (1 - SIMILARITY_THRESHOLD),
-    # up to the full collection size. This ensures Femi sees all genuinely
-    # relevant records rather than an arbitrary fixed number.
-    #
-    # SIMILARITY_THRESHOLD is a ChromaDB-style distance (lower = more similar).
+    # TOP_K is retained so rag.py requires no changes — vector_store.query()
+    # ignores it and uses score_threshold + full collection size instead.
+    # Set to 75 (full dataset size) as a safe pass-through value.
+    TOP_K: int = 75
+
+    # SIMILARITY_THRESHOLD drives the actual retrieval cutoff.
     # Qdrant score_threshold = 1 - SIMILARITY_THRESHOLD.
-    # 0.5 → accepts chunks where Qdrant scores above 0.5 (moderately similar).
-    # Lower this value to be more strict; raise it to be more permissive.
+    # 0.5 → accepts any chunk where Qdrant scores above 0.5.
+    # Lower to be more strict; raise to be more permissive.
     SIMILARITY_THRESHOLD: float = 0.5
 
     # ------------------------------------------------------------------ #
