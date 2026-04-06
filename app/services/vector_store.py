@@ -1,17 +1,7 @@
 """
 vector_store.py — Qdrant Cloud vector store for Femi RAG Service.
 
-Replaces ChromaDB (which requires hnswlib / libgomp.so.1 — unavailable on
-Vercel/Lambda) with Qdrant Cloud, a hosted vector database with a free tier.
-
-Interface is identical to the original ChromaDB implementation so no other
-files need to change.
-
-Setup:
-  1. Create a free cluster at https://cloud.qdrant.io
-  2. Copy your cluster URL and API key into .env and Vercel env vars:
-       QDRANT_URL=https://xxxx.us-east4-0.gcp.cloud.qdrant.io:6333
-       QDRANT_API_KEY=your-api-key-here
+Uses qdrant-client >= 1.8 API (query_points replaces the deprecated search).
 """
 
 import logging
@@ -38,7 +28,6 @@ def _chunk_id_to_int(chunk_id: str) -> int:
     """
     Convert a string chunk_id (e.g. 'chunk_0_POL001') to a stable
     unsigned 64-bit integer for Qdrant point IDs.
-    Uses the first 16 hex chars of MD5 — collision-safe at our scale.
     """
     return int(hashlib.md5(chunk_id.encode()).hexdigest()[:16], 16) % (2**63)
 
@@ -46,9 +35,7 @@ def _chunk_id_to_int(chunk_id: str) -> int:
 class VectorStoreService:
     """
     Qdrant Cloud-backed vector store.
-
-    Maintains the same public interface as the original ChromaDB
-    implementation so the rest of the codebase is unaffected.
+    Maintains the same public interface as the original ChromaDB implementation.
     """
 
     def __init__(self):
@@ -109,7 +96,6 @@ class VectorStoreService:
                 vector=embedding,
                 payload={
                     **chunk.metadata,
-                    # Store document text in payload so we can return it in results
                     "_document": chunk.text,
                     "_chunk_id": chunk.chunk_id,
                 },
@@ -117,7 +103,6 @@ class VectorStoreService:
             for chunk, embedding in zip(chunks, embeddings)
         ]
 
-        # Batch upserts to stay within Qdrant's request size limits
         batch_size = 100
         for i in range(0, len(points), batch_size):
             self.client.upsert(
@@ -145,11 +130,6 @@ class VectorStoreService:
             "metadatas": [[metadata_dict, ...]],
             "distances": [[score, ...]],
           }
-
-        Args:
-            query_embedding: The embedded query vector
-            top_k:           Number of results to return
-            where:           Optional equality filter e.g. {"policy_type": "Motor"}
         """
         qdrant_filter = None
         if where:
@@ -160,9 +140,11 @@ class VectorStoreService:
                 ]
             )
 
-        results = self.client.search(
+        # query_points is the current API in qdrant-client >= 1.8
+        # (replaces the deprecated .search() method)
+        response = self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=min(top_k, max(self.count(), 1)),
             query_filter=qdrant_filter,
             with_payload=True,
@@ -172,10 +154,9 @@ class VectorStoreService:
         metadatas: list[dict] = []
         distances: list[float] = []
 
-        for hit in results:
+        for hit in response.points:
             payload = hit.payload or {}
             documents.append(payload.get("_document", ""))
-            # Strip internal underscore-prefixed fields from metadata
             meta = {k: v for k, v in payload.items() if not k.startswith("_")}
             metadatas.append(meta)
             distances.append(hit.score)
